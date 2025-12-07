@@ -609,7 +609,42 @@ body {
     letter-spacing: 0.05em;
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    /* Added space-between */
     gap: 0.5rem;
+}
+
+.message-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.message-copy-btn {
+    background: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.2s;
+    opacity: 0.6;
+}
+
+.message-copy-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    opacity: 1;
+    color: var(--active-color);
+}
+
+.message-copy-btn.copied {
+    background: var(--success-color);
+    border-color: var(--success-color);
+    color: white;
 }
 
 .message-header::before {

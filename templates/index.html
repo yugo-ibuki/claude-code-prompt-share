@@ -61,6 +61,7 @@
 
                 <div class="project-item"
                     onclick="selectProject('{{ .EncodedPath }}', '{{ .DecodedPath | getProjectName }}', this)"
+                    data-encoded-path="{{ .EncodedPath }}" data-project-name="{{ .DecodedPath | getProjectName }}"
                     data-created="{{ $earliest }}" data-updated="{{ $latest }}">
                     <div class="project-header">
                         <span class="project-icon">📂</span>
@@ -117,20 +118,51 @@
     <script>
         let currentEncodedPath = null
         let currentSessionId = null
+        const messageContentMap = new Map()
 
         // Load projects on page load
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             setupSearch()
+
+            // Restore state from URL
+            const params = new URLSearchParams(window.location.search)
+            const projectParam = params.get('project')
+            const sessionParam = params.get('session')
+
+            if (projectParam) {
+                const projectEl = document.querySelector(`.project-item[data-encoded-path="${projectParam}"]`)
+                if (projectEl) {
+                    await selectProject(projectParam, projectEl.dataset.projectName, projectEl, false)
+
+                    if (sessionParam) {
+                        const sessionEl = document.querySelector(`.session-item[data-session-id="${sessionParam}"]`)
+                        if (sessionEl) {
+                            await selectSession(projectParam, sessionParam, sessionEl, false)
+                        }
+                    }
+                }
+            }
+        })
+
+        window.addEventListener('popstate', () => {
+            window.location.reload()
         })
 
         // Select a project and load its sessions
-        async function selectProject(encodedPath, projectName, element) {
+        async function selectProject(encodedPath, projectName, element, updateUrl = true) {
             // Remove previous active states
             document.querySelectorAll('.project-item').forEach(el => el.classList.remove('active'))
             element.classList.add('active')
 
             // Update project info
             document.getElementById('project-info').innerHTML = `<small>${projectName}</small>`
+
+            if (updateUrl) {
+                const newUrl = new URL(window.location)
+                newUrl.searchParams.set('project', encodedPath)
+                newUrl.searchParams.delete('session')
+                window.history.pushState({}, '', newUrl)
+            }
 
             // Load sessions
             await loadSessions(encodedPath)
@@ -162,7 +194,7 @@
                 }
 
                 container.innerHTML = sessions.map(session => `
-                    <div class="session-item" onclick="selectSession('${encodedPath}', '${session.ID}', this)">
+                    <div class="session-item" onclick="selectSession('${encodedPath}', '${session.ID}', this)" data-session-id="${session.ID}">
                         <div class="session-date">${formatDate(session.StartTime)}</div>
                         <div class="session-preview">${escapeHtml(session.FirstMessage.substring(0, 50))}${session.FirstMessage.length > 50 ? '...' : ''}</div>
                         <div class="session-meta">
@@ -177,13 +209,20 @@
         }
 
         // Select a session and load full chat history
-        async function selectSession(encodedPath, sessionId, element) {
+        async function selectSession(encodedPath, sessionId, element, updateUrl = true) {
             // Remove previous active states
             document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'))
             element.classList.add('active')
 
             currentEncodedPath = encodedPath
             currentSessionId = sessionId
+
+            if (updateUrl) {
+                const newUrl = new URL(window.location)
+                newUrl.searchParams.set('project', encodedPath)
+                newUrl.searchParams.set('session', sessionId)
+                window.history.pushState({}, '', newUrl)
+            }
 
             // Update session info
             document.getElementById('session-info').innerHTML = `<small>Session: ${sessionId}</small>`
@@ -196,6 +235,7 @@
         async function loadFullChat(encodedPath, sessionId) {
             const container = document.getElementById('chat-container')
             container.innerHTML = '<div class="loading">Loading conversation...</div>'
+            messageContentMap.clear()
 
             try {
                 const response = await fetch(`/api/projects/${encodedPath}/sessions/${sessionId}/full`)
@@ -221,16 +261,28 @@
         function renderMessageBubble(msg) {
             const isUser = msg.role === 'user'
             const roleName = isUser ? 'User' : 'Claude'
-            const badgeClass = isUser ? 'user-message' : 'assistant-message' // Using existing classes for coloring
+            const badgeClass = isUser ? 'user-message' : 'assistant-message'
             const uuid = 'msg-' + Math.random().toString(36).substr(2, 9)
+
+            // Store raw content for copying
+            messageContentMap.set(uuid, msg.content)
 
             const contentHtml = renderMarkdown(msg.content)
 
             return `
                 <div class="message-block ${badgeClass}">
                     <div class="message-header">
-                        <span class="role-badge">${isUser ? '👤' : '🤖'} ${roleName}</span>
-                        <span class="timestamp">${formatTime(msg.timestamp)}</span>
+                        <div class="message-info">
+                            <span class="role-badge">${isUser ? '👤' : '🤖'} ${roleName}</span>
+                            <span class="timestamp">${formatTime(msg.timestamp)}</span>
+                        </div>
+                        <button class="message-copy-btn" onclick="copyMessage('${uuid}', this)" title="Copy message">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                            <span>Copy</span>
+                        </button>
                     </div>
                     <div class="collapsible-container collapsed-content" id="${uuid}">
                         <div class="message-content">
@@ -242,6 +294,34 @@
                     </div>
                 </div>
             `
+        }
+
+        // Copy message content
+        async function copyMessage(uuid, btn) {
+            const content = messageContentMap.get(uuid)
+            if (!content) return
+
+            try {
+                await navigator.clipboard.writeText(content)
+
+                // Visual feedback
+                const originalHtml = btn.innerHTML
+                btn.classList.add('copied')
+                btn.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>Copied!</span>
+                `
+
+                setTimeout(() => {
+                    btn.classList.remove('copied')
+                    btn.innerHTML = originalHtml
+                }, 2000)
+            } catch (err) {
+                console.error('Failed to copy:', err)
+                alert('コピーに失敗しました')
+            }
         }
 
         // Toggle content expansion
