@@ -251,3 +251,33 @@ func getProjectName(path string) string {
 	}
 	return path
 }
+
+// ArchiveSessionHandler toggles archive status
+func (h *Handler) ArchiveSessionHandler(c echo.Context) error {
+	sessionID := c.Param("sessionId")
+	
+	isArchived, err := h.sessionService.ToggleArchiveSession(sessionID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"archived": isArchived,
+	})
+}
+
+// ArchiveProjectHandler toggles archive status for a project
+func (h *Handler) ArchiveProjectHandler(c echo.Context) error {
+	encodedPath := c.Param("encodedPath")
+	
+	isArchived, err := h.sessionService.ToggleArchiveProject(encodedPath)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"archived": isArchived,
+	})
+}

@@ -66,6 +66,16 @@
                     <div class="project-header">
                         <span class="project-icon">📂</span>
                         <div class="project-name">{{ .DecodedPath | getProjectName }}</div>
+                        <button class="archive-btn" onclick="archiveProject('{{ .EncodedPath }}', event)"
+                            title="Archive Project">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path
+                                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                                </path>
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 {{ end }}
@@ -201,6 +211,12 @@
                             <span>👤 ${session.UserMessageCount}</span>
                             <span>🤖 ${session.AssistantMessageCount}</span>
                         </div>
+                        <button class="archive-btn" onclick="archiveSession('${session.ID}', event)" title="Archive Session">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
                     </div>
                 `).join('')
             } catch (error) {
@@ -685,6 +701,64 @@
             const div = document.createElement('div')
             div.textContent = text
             return div.innerHTML
+        }
+
+        async function archiveSession(sessionId, event) {
+            event.stopPropagation() // Prevent selection
+            if (!confirm('このセッションをアーカイブしますか？')) return
+
+            try {
+                const response = await fetch(`/api/sessions/${sessionId}/archive`, {
+                    method: 'POST'
+                })
+
+                if (response.ok) {
+                    // Remove from view
+                    const el = document.querySelector(`.session-item[data-session-id="${sessionId}"]`)
+                    if (el) {
+                        el.style.opacity = '0'
+                        setTimeout(() => el.remove(), 300)
+                    }
+                } else {
+                    alert('処理に失敗しました')
+                }
+            } catch (e) {
+                console.error(e)
+                alert('エラーが発生しました')
+            }
+        }
+
+        async function archiveProject(encodedPath, event) {
+            event.stopPropagation() // Prevent selection
+            if (!confirm('このプロジェクトをアーカイブしますか？')) return
+
+            try {
+                const response = await fetch(`/api/projects/${encodedPath}/archive`, {
+                    method: 'POST'
+                })
+
+                if (response.ok) {
+                    // Remove from view
+                    const el = document.querySelector(`.project-item[data-encoded-path="${encodedPath}"]`)
+                    if (el) {
+                        el.style.opacity = '0'
+                        setTimeout(() => el.remove(), 300)
+                    }
+
+                    // If active project, clear detail view
+                    if (encodedPath === currentEncodedPath) {
+                        document.getElementById('sessions-list').innerHTML = '<div class="empty-state"><p>プロジェクトを選択すると<br>セッション一覧が表示されます</p></div>'
+                        document.getElementById('chat-container').innerHTML = '<div class="empty-state"><p>セッションを選択すると<br>チャット履歴が表示されます</p></div>'
+                        document.getElementById('project-info').innerHTML = '<small>プロジェクトを選択してください</small>'
+                        document.getElementById('session-info').innerHTML = '<small>セッションを選択してください</small>'
+                    }
+                } else {
+                    alert('処理に失敗しました')
+                }
+            } catch (e) {
+                console.error(e)
+                alert('エラーが発生しました')
+            }
         }
     </script>
 </body>

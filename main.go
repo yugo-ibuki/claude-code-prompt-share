@@ -63,6 +63,8 @@ func main() {
 	e.GET("/api/projects/:encodedPath/sessions/:sessionId/prompts", h.GetPromptsAPIHandler)
 	e.GET("/api/projects/:encodedPath/sessions/:sessionId/prompts/:promptIndex", h.GetResponseAPIHandler)
 	e.GET("/api/projects/:encodedPath/sessions/:sessionId/full", h.GetSessionFullAPIHandler)
+	e.POST("/api/sessions/:sessionId/archive", h.ArchiveSessionHandler)
+	e.POST("/api/projects/:encodedPath/archive", h.ArchiveProjectHandler)
 
 	// Start server
 	log.Println("Starting Claude Code Session Viewer on http://localhost:8080")

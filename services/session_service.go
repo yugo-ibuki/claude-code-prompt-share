@@ -28,6 +28,129 @@ func NewSessionService() *SessionService {
 	}
 }
 
+const archiveFile = "data/archived_sessions.json"
+
+// ArchiveData represents the structure of the archive JSON file
+type ArchiveData struct {
+	ArchivedSessions []string `json:"archived_sessions"`
+	ArchivedProjects []string `json:"archived_projects"`
+}
+
+// ToggleArchiveSession toggles the archive status of a session
+func (s *SessionService) ToggleArchiveSession(sessionID string) (bool, error) {
+	// Create data directory if not exists
+	if err := os.MkdirAll("data", 0755); err != nil {
+		return false, fmt.Errorf("failed to create data dir: %w", err)
+	}
+
+	// Load existing
+	archivedSessions, archivedProjects, err := s.loadArchivedData()
+	if err != nil && !os.IsNotExist(err) {
+		return false, err
+	}
+	if archivedSessions == nil {
+		archivedSessions = make(map[string]bool)
+	}
+
+	// Toggle
+	isArchived := false
+	if archivedSessions[sessionID] {
+		delete(archivedSessions, sessionID)
+		isArchived = false
+	} else {
+		archivedSessions[sessionID] = true
+		isArchived = true
+	}
+
+	// Save
+	if err := s.saveArchivedData(archivedSessions, archivedProjects); err != nil {
+		return false, err
+	}
+
+	return isArchived, nil
+}
+
+// ToggleArchiveProject toggles the archive status of a project
+func (s *SessionService) ToggleArchiveProject(encodedPath string) (bool, error) {
+	// Create data directory if not exists
+	if err := os.MkdirAll("data", 0755); err != nil {
+		return false, fmt.Errorf("failed to create data dir: %w", err)
+	}
+
+	// Load existing
+	archivedSessions, archivedProjects, err := s.loadArchivedData()
+	if err != nil && !os.IsNotExist(err) {
+		return false, err
+	}
+	if archivedProjects == nil {
+		archivedProjects = make(map[string]bool)
+	}
+
+	// Toggle
+	isArchived := false
+	if archivedProjects[encodedPath] {
+		delete(archivedProjects, encodedPath)
+		isArchived = false
+	} else {
+		archivedProjects[encodedPath] = true
+		isArchived = true
+	}
+
+	// Save
+	if err := s.saveArchivedData(archivedSessions, archivedProjects); err != nil {
+		return false, err
+	}
+
+	return isArchived, nil
+}
+
+func (s *SessionService) loadArchivedData() (map[string]bool, map[string]bool, error) {
+	file, err := os.ReadFile(archiveFile)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var data ArchiveData
+	if err := json.Unmarshal(file, &data); err != nil {
+		return nil, nil, err
+	}
+
+	sessions := make(map[string]bool)
+	for _, id := range data.ArchivedSessions {
+		sessions[id] = true
+	}
+
+	projects := make(map[string]bool)
+	for _, id := range data.ArchivedProjects {
+		projects[id] = true
+	}
+
+	return sessions, projects, nil
+}
+
+func (s *SessionService) saveArchivedData(sessions map[string]bool, projects map[string]bool) error {
+	var sessionList []string
+	for id := range sessions {
+		sessionList = append(sessionList, id)
+	}
+
+	var projectList []string
+	for id := range projects {
+		projectList = append(projectList, id)
+	}
+
+	data := ArchiveData{
+		ArchivedSessions: sessionList,
+		ArchivedProjects: projectList,
+	}
+	bytes, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(archiveFile, bytes, 0644)
+}
+
 // GetAllProjects returns all Claude Code projects
 func (s *SessionService) GetAllProjects() ([]models.Project, error) {
 	projectsDir := filepath.Join(s.claudeDir, "projects")
@@ -37,6 +160,12 @@ func (s *SessionService) GetAllProjects() ([]models.Project, error) {
 		return nil, fmt.Errorf("failed to read projects directory: %w", err)
 	}
 
+	// Load archived data
+	_, archivedProjects, _ := s.loadArchivedData() // Ignore error
+	if archivedProjects == nil {
+		archivedProjects = make(map[string]bool)
+	}
+
 	var projects []models.Project
 	for _, entry := range entries {
 		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
@@ -44,6 +173,12 @@ func (s *SessionService) GetAllProjects() ([]models.Project, error) {
 		}
 
 		encodedPath := entry.Name()
+
+		// Skip archived projects
+		if archivedProjects[encodedPath] {
+			continue
+		}
+
 		decodedPath := s.decodeProjectPath(encodedPath)
 
 		sessions, err := s.getProjectSessions(encodedPath)
@@ -70,6 +205,12 @@ func (s *SessionService) getProjectSessions(encodedPath string) ([]models.Sessio
 		return nil, err
 	}
 
+	// Load archived list
+	archivedSessions, _, _ := s.loadArchivedData() // Ignore error
+	if archivedSessions == nil {
+		archivedSessions = make(map[string]bool)
+	}
+
 	var sessions []models.SessionInfo
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
@@ -82,6 +223,12 @@ func (s *SessionService) getProjectSessions(encodedPath string) ([]models.Sessio
 		}
 
 		sessionID := strings.TrimSuffix(entry.Name(), ".jsonl")
+		
+		// Skip archived sessions
+		if archivedSessions[sessionID] {
+			continue
+		}
+
 		sessionInfo, err := s.getSessionInfo(encodedPath, sessionID)
 		if err != nil {
 			continue

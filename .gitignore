@@ -29,4 +29,6 @@ vendor/
 Thumbs.db
 
 # Application
+# Application
 claude-code-prompt-share
+data/
