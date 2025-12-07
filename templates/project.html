@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.ProjectName}} - Sessions</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{{.ProjectName}}</h1>
+            <p class="breadcrumb">
+                <a href="/">ホーム</a> &gt; {{.ProjectName}}
+            </p>
+        </header>
+
+        <main>
+            <div class="project-info-box">
+                <p><strong>プロジェクトパス:</strong> {{.ProjectPath}}</p>
+            </div>
+
+            <h2>セッション一覧</h2>
+            {{if .Sessions}}
+                <div class="sessions-list">
+                    {{range .Sessions}}
+                        <div class="session-card">
+                            <div class="session-header">
+                                <h3>{{.StartTime.Format "2006-01-02 15:04:05"}}</h3>
+                                <span class="message-count">メッセージ: {{.MessageCount}}</span>
+                            </div>
+                            <p class="session-preview">{{.FirstMessage}}</p>
+                            <div class="session-footer">
+                                <span class="session-duration">
+                                    期間: {{.StartTime.Format "15:04"}} - {{.EndTime.Format "15:04"}}
+                                </span>
+                                <a href="/project/{{$.EncodedPath}}/session/{{.ID}}" class="view-link">詳細を見る →</a>
+                            </div>
+                        </div>
+                    {{end}}
+                </div>
+            {{else}}
+                <p class="no-data">セッションが見つかりませんでした。</p>
+            {{end}}
+        </main>
+
+        <footer>
+            <p><a href="/">← プロジェクト一覧に戻る</a></p>
+        </footer>
+    </div>
+</body>
+</html>

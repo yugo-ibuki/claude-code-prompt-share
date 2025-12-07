@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session - {{.Session.ProjectName}}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>セッション詳細</h1>
+            <p class="breadcrumb">
+                <a href="/">ホーム</a> &gt;
+                <a href="/project/{{.Session.ProjectPath}}">{{.Session.ProjectName}}</a> &gt;
+                セッション
+            </p>
+        </header>
+
+        <main>
+            <div class="session-info-box">
+                <p><strong>プロジェクト:</strong> {{.Session.ProjectName}}</p>
+                <p><strong>開始時刻:</strong> {{.Session.StartTime.Format "2006-01-02 15:04:05"}}</p>
+                <p><strong>終了時刻:</strong> {{.Session.EndTime.Format "2006-01-02 15:04:05"}}</p>
+                <p><strong>メッセージ数:</strong> {{len .Session.Messages}}</p>
+            </div>
+
+            <h2>会話履歴</h2>
+            <div class="conversation">
+                {{range .Session.Messages}}
+                    <div class="message {{.Role}}">
+                        <div class="message-header">
+                            <span class="role-badge">{{if eq .Role "user"}}👤 User{{else}}🤖 Assistant{{end}}</span>
+                            <span class="timestamp">{{.Timestamp.Format "15:04:05"}}</span>
+                        </div>
+                        <div class="message-content">
+                            <pre>{{.Content}}</pre>
+                        </div>
+                    </div>
+                {{end}}
+            </div>
+        </main>
+
+        <footer>
+            <p><a href="javascript:history.back()">← 戻る</a></p>
+        </footer>
+    </div>
+</body>
+</html>

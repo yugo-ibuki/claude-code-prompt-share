@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>検索結果 - Claude Code Session Viewer</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>検索結果</h1>
+            <form action="/search" method="get" class="search-form">
+                <input type="text" name="q" value="{{.Query}}" placeholder="セッション内容を検索..." class="search-input">
+                <button type="submit" class="search-button">検索</button>
+            </form>
+        </header>
+
+        <main>
+            <h2>「{{.Query}}」の検索結果</h2>
+            {{if .Sessions}}
+                <p class="search-count">{{len .Sessions}} 件のセッションが見つかりました</p>
+                <div class="sessions-list">
+                    {{range .Sessions}}
+                        <div class="session-card">
+                            <div class="session-header">
+                                <h3>{{.ProjectName}}</h3>
+                                <span class="message-count">メッセージ: {{.MessageCount}}</span>
+                            </div>
+                            <p class="session-preview">{{.FirstMessage}}</p>
+                            <div class="session-footer">
+                                <span class="session-date">{{.StartTime.Format "2006-01-02 15:04"}}</span>
+                                <a href="/project/{{.ProjectPath}}/session/{{.ID}}" class="view-link">詳細を見る →</a>
+                            </div>
+                        </div>
+                    {{end}}
+                </div>
+            {{else}}
+                <p class="no-data">検索結果が見つかりませんでした。</p>
+            {{end}}
+        </main>
+
+        <footer>
+            <p><a href="/">← ホームに戻る</a></p>
+        </footer>
+    </div>
+</body>
+</html>
