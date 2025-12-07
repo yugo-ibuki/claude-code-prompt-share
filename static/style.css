@@ -602,7 +602,8 @@ body {
 
 .message-header {
     font-weight: 600;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0;
+    /* Removed margin-bottom because we are now using padding inside header */
     color: var(--text-secondary);
     font-size: 0.85rem;
     text-transform: uppercase;
@@ -657,11 +658,40 @@ body {
 }
 
 .user-message .message-header {
-    color: #3b82f6;
+    color: #0f172a;
+    background: #eff6ff;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #bfdbfe;
+    flex-direction: row-reverse;
+}
+
+.user-message .message-info {
+    flex-direction: row-reverse;
+}
+
+.user-message {
+    border: 1px solid #bfdbfe;
+    background: #f8fafc;
+    margin-left: auto;
+    margin-right: 0;
+    max-width: 90%;
+    border-radius: 16px 16px 4px 16px;
 }
 
 .assistant-message .message-header {
-    color: #8b5cf6;
+    color: #0f172a;
+    background: #f5f3ff;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #ddd6fe;
+}
+
+.assistant-message {
+    border: 1px solid #ddd6fe;
+    background: white;
+    margin-right: auto;
+    max-width: 95%;
+    /* Keep wide for code readability */
+    border-radius: 16px 16px 16px 4px;
 }
 
 /* Enhanced Typography */

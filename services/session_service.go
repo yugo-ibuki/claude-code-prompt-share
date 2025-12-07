@@ -113,14 +113,31 @@ func (s *SessionService) getSessionInfo(encodedPath, sessionID string) (models.S
 		}
 	}
 
+	userCount := 0
+	assistantCount := 0
+	for _, msg := range session.Messages {
+		// Skip empty messages (tool use/results)
+		if strings.TrimSpace(msg.Content) == "" {
+			continue
+		}
+
+		if msg.Role == "user" {
+			userCount++
+		} else if msg.Role == "assistant" {
+			assistantCount++
+		}
+	}
+
 	return models.SessionInfo{
-		ID:          sessionID,
-		ProjectPath: session.ProjectPath,
-		ProjectName: session.ProjectName,
-		StartTime:   session.StartTime,
-		EndTime:     session.EndTime,
-		MessageCount: len(session.Messages),
-		FirstMessage: firstMessage,
+		ID:                    sessionID,
+		ProjectPath:           session.ProjectPath,
+		ProjectName:           session.ProjectName,
+		StartTime:             session.StartTime,
+		EndTime:               session.EndTime,
+		MessageCount:          len(session.Messages),
+		UserMessageCount:      userCount,
+		AssistantMessageCount: assistantCount,
+		FirstMessage:          firstMessage,
 	}, nil
 }
 

@@ -59,11 +59,13 @@ type Project struct {
 
 // SessionInfo represents basic session information for listing
 type SessionInfo struct {
-	ID          string
-	ProjectPath string
-	ProjectName string
-	StartTime   time.Time
-	EndTime     time.Time
-	MessageCount int
-	FirstMessage string
+	ID                    string
+	ProjectPath           string
+	ProjectName           string
+	StartTime             time.Time
+	EndTime               time.Time
+	MessageCount          int
+	UserMessageCount      int
+	AssistantMessageCount int
+	FirstMessage          string
 }
