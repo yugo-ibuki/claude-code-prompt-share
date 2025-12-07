@@ -25,9 +25,25 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
+	// Template helper functions
+	funcMap := template.FuncMap{
+		"getProjectName": func(path string) string {
+			if path == "" {
+				return "Unknown"
+			}
+			parts := []rune(path)
+			for i := len(parts) - 1; i >= 0; i-- {
+				if parts[i] == '/' {
+					return string(parts[i+1:])
+				}
+			}
+			return path
+		},
+	}
+
 	// Template renderer
 	renderer := &TemplateRenderer{
-		templates: template.Must(template.ParseGlob("templates/*.html")),
+		templates: template.Must(template.New("").Funcs(funcMap).ParseGlob("templates/*.html")),
 	}
 	e.Renderer = renderer
 
@@ -46,6 +62,7 @@ func main() {
 	e.GET("/api/projects/:encodedPath/sessions", h.GetSessionsAPIHandler)
 	e.GET("/api/projects/:encodedPath/sessions/:sessionId/prompts", h.GetPromptsAPIHandler)
 	e.GET("/api/projects/:encodedPath/sessions/:sessionId/prompts/:promptIndex", h.GetResponseAPIHandler)
+	e.GET("/api/projects/:encodedPath/sessions/:sessionId/full", h.GetSessionFullAPIHandler)
 
 	// Start server
 	log.Println("Starting Claude Code Session Viewer on http://localhost:8080")

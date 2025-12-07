@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claude Code Session Viewer</title>
-    <link rel="stylesheet" href="/static/style.css?v=9">
+    <link rel="stylesheet" href="/static/style.css?v=17">
     <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -26,11 +26,48 @@
         <!-- Left Sidebar: Projects -->
         <aside class="sidebar left-sidebar">
             <div class="sidebar-header">
-                <h1>📁 Projects</h1>
-                <input type="text" id="project-search" placeholder="プロジェクトを検索..." class="search-input">
+                <h1>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    Claude Sessions
+                </h1>
+                <div class="sort-controls">
+                    <button class="sort-btn active" onclick="sortProjects('created')" title="Sort by Creation Date">
+                        <span>📅 Created</span>
+                    </button>
+                    <button class="sort-btn" onclick="sortProjects('updated')" title="Sort by Last Update">
+                        <span>🔄 Updated</span>
+                    </button>
+                </div>
+                <div class="session-info">
+                    {{ len .Projects }} Projects
+                </div>
+            </div>
+            <div class="search-box" style="padding: 0 1rem 0.5rem;">
+                <input type="text" id="project-search" class="search-input" placeholder="Search projects...">
             </div>
             <div class="projects-list" id="projects-list">
-                <div class="loading">Loading projects...</div>
+                {{ range .Projects }}
+                {{ $latest := 0 }}
+                {{ if gt (len .Sessions) 0 }}
+                {{ $latest = (index .Sessions 0).StartTime.Unix }}
+                {{ end }}
+
+                {{ $earliest := $latest }}
+                {{ range .Sessions }}
+                {{ $earliest = .StartTime.Unix }}
+                {{ end }}
+
+                <div class="project-item"
+                    onclick="selectProject('{{ .EncodedPath }}', '{{ .DecodedPath | getProjectName }}', this)"
+                    data-created="{{ $earliest }}" data-updated="{{ $latest }}">
+                    <div class="project-header">
+                        <span class="project-icon">📂</span>
+                        <div class="project-name">{{ .DecodedPath | getProjectName }}</div>
+                    </div>
+                </div>
+                {{ end }}
             </div>
         </aside>
 
@@ -54,31 +91,15 @@
             </div>
         </aside>
 
-        <!-- Right Sidebar: Prompts -->
-        <aside class="sidebar right-sidebar">
-            <div class="sidebar-header">
-                <h2>💬 Prompts</h2>
-                <div class="session-info" id="session-info">
+        <!-- Main Content: Chat View -->
+        <main class="main-content">
+            <div class="content-header">
+                <h2>💬 Chat History</h2>
+                <div class="prompt-info" id="session-info">
                     <small>セッションを選択してください</small>
                 </div>
             </div>
-            <div class="prompts-list" id="prompts-list">
-                <div class="empty-state">
-                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                    <p>セッションを選択すると<br>プロンプト一覧が表示されます</p>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Content: Response -->
-        <main class="main-content">
-            <div class="content-header">
-                <h2>🤖 Response</h2>
-                <div class="prompt-info" id="prompt-info"></div>
-            </div>
-            <div class="response-container" id="response-container">
+            <div class="response-container chat-container" id="chat-container">
                 <div class="empty-state">
                     <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                         stroke-width="2">
@@ -87,7 +108,7 @@
                         <line x1="9" y1="9" x2="9.01" y2="9"></line>
                         <line x1="15" y1="9" x2="15.01" y2="9"></line>
                     </svg>
-                    <p>プロンプトを選択すると<br>AIの回答が表示されます</p>
+                    <p>セッションを選択すると<br>チャット履歴が表示されます</p>
                 </div>
             </div>
         </main>
@@ -99,35 +120,8 @@
 
         // Load projects on page load
         document.addEventListener('DOMContentLoaded', () => {
-            loadProjects()
             setupSearch()
         })
-
-        // Load all projects
-        async function loadProjects() {
-            const container = document.getElementById('projects-list')
-            try {
-                const response = await fetch('/api/projects')
-                const projects = await response.json()
-
-                if (projects.length === 0) {
-                    container.innerHTML = '<div class="empty-state"><p>プロジェクトが見つかりません</p></div>'
-                    return
-                }
-
-                container.innerHTML = projects.map(project => `
-                    <div class="project-item" onclick="selectProject('${project.EncodedPath}', '${escapeHtml(getProjectName(project.DecodedPath))}', this)">
-                        <div class="project-header">
-                            <span class="project-icon">📂</span>
-                            <span class="project-name">${escapeHtml(getProjectName(project.DecodedPath))}</span>
-                        </div>
-                    </div>
-                `).join('')
-            } catch (error) {
-                container.innerHTML = '<div class="error">プロジェクトの読み込みに失敗しました</div>'
-                console.error('Failed to load projects:', error)
-            }
-        }
 
         // Select a project and load its sessions
         async function selectProject(encodedPath, projectName, element) {
@@ -141,26 +135,16 @@
             // Load sessions
             await loadSessions(encodedPath)
 
-            // Clear prompts and response
-            document.getElementById('prompts-list').innerHTML = `
-                <div class="empty-state">
-                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                    <p>セッションを選択すると<br>プロンプト一覧が表示されます</p>
-                </div>
-            `
-            document.getElementById('response-container').innerHTML = `
+            // Clear chat
+            document.getElementById('chat-container').innerHTML = `
                 <div class="empty-state">
                     <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-                        <line x1="9" y1="9" x2="9.01" y2="9"></line>
-                        <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                     </svg>
-                    <p>プロンプトを選択すると<br>AIの回答が表示されます</p>
+                    <p>セッションを選択すると<br>チャット履歴が表示されます</p>
                 </div>
             `
+            document.getElementById('session-info').innerHTML = '<small>セッションを選択してください</small>'
         }
 
         // Load sessions for a project
@@ -192,7 +176,7 @@
             }
         }
 
-        // Select a session and load its prompts
+        // Select a session and load full chat history
         async function selectSession(encodedPath, sessionId, element) {
             // Remove previous active states
             document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'))
@@ -204,116 +188,74 @@
             // Update session info
             document.getElementById('session-info').innerHTML = `<small>Session: ${sessionId}</small>`
 
-            // Load prompts in right sidebar
-            await loadPrompts(encodedPath, sessionId)
-
-            // Clear response in main area
-            document.getElementById('response-container').innerHTML = `
-                <div class="empty-state">
-                    <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-                        <line x1="9" y1="9" x2="9.01" y2="9"></line>
-                        <line x1="15" y1="9" x2="15.01" y2="9"></line>
-                    </svg>
-                    <p>プロンプトを選択すると<br>AIの回答が表示されます</p>
-                </div>
-            `
+            // Load full chat history
+            await loadFullChat(encodedPath, sessionId)
         }
 
-        // Load conversation threads for a session
-        async function loadPrompts(encodedPath, sessionId) {
-            const container = document.getElementById('prompts-list')
-            container.innerHTML = '<div class="loading">Loading conversation threads...</div>'
+        // Load full chat history
+        async function loadFullChat(encodedPath, sessionId) {
+            const container = document.getElementById('chat-container')
+            container.innerHTML = '<div class="loading">Loading conversation...</div>'
 
             try {
-                const response = await fetch(`/api/projects/${encodedPath}/sessions/${sessionId}/prompts`)
-                const threads = await response.json()
+                const response = await fetch(`/api/projects/${encodedPath}/sessions/${sessionId}/full`)
+                const messages = await response.json()
 
-                if (threads.length === 0) {
+                if (messages.length === 0) {
                     container.innerHTML = '<div class="empty-state"><p>会話がありません</p></div>'
                     return
                 }
 
-                container.innerHTML = threads.map(thread => {
-                    const firstPromptIndex = thread.prompts[0].index
-                    const promptList = thread.prompts.map(prompt => `
-                        <div class="thread-prompt-item" onclick="selectPrompt(${prompt.index}, this)">
-                            <div class="thread-prompt-preview">${escapeHtml(prompt.content.substring(0, 60))}${prompt.content.length > 60 ? '...' : ''}</div>
-                        </div>
-                    `).join('')
+                container.innerHTML = messages.map(msg => renderMessageBubble(msg)).join('')
 
-                    return `
-                        <div class="thread-item">
-                            <div class="thread-header" onclick="selectThreadPrompt(${firstPromptIndex}, '${thread.id}', this)">
-                                <div class="thread-info">
-                                    <div class="thread-summary">${escapeHtml(thread.summary)}</div>
-                                    <div class="thread-meta">
-                                        <span class="thread-count">💬 ${thread.promptCount}件</span>
-                                        <span class="thread-time">${formatRelativeTime(thread.startTime)}</span>
-                                    </div>
-                                </div>
-                                <span class="thread-toggle">▼</span>
-                            </div>
-                            <div class="thread-prompts" id="${thread.id}" style="display: none;">
-                                ${promptList}
-                            </div>
-                        </div>
-                    `
-                }).join('')
+                // Process code blocks
+                processCodeBlocks()
+
             } catch (error) {
                 container.innerHTML = '<div class="error">会話の読み込みに失敗しました</div>'
-                console.error('Failed to load prompts:', error)
+                console.error('Failed to load chat:', error)
             }
         }
 
-        // Select thread and show first prompt's response
-        async function selectThreadPrompt(promptIndex, threadId, element) {
-            // Toggle thread expansion
-            const threadPrompts = document.getElementById(threadId)
-            const isVisible = threadPrompts.style.display !== 'none'
+        // Render a single message bubble
+        function renderMessageBubble(msg) {
+            const isUser = msg.role === 'user'
+            const roleName = isUser ? 'User' : 'Claude'
+            const badgeClass = isUser ? 'user-message' : 'assistant-message' // Using existing classes for coloring
+            const uuid = 'msg-' + Math.random().toString(36).substr(2, 9)
 
-            if (!isVisible) {
-                threadPrompts.style.display = 'block'
-                element.querySelector('.thread-toggle').textContent = '▲'
+            const contentHtml = renderMarkdown(msg.content)
+
+            return `
+                <div class="message-block ${badgeClass}">
+                    <div class="message-header">
+                        <span class="role-badge">${isUser ? '👤' : '🤖'} ${roleName}</span>
+                        <span class="timestamp">${formatTime(msg.timestamp)}</span>
+                    </div>
+                    <div class="collapsible-container collapsed-content" id="${uuid}">
+                        <div class="message-content">
+                            ${contentHtml}
+                        </div>
+                        <div class="collapse-overlay">
+                            <button class="show-more-btn" onclick="toggleContent('${uuid}')">Show More</button>
+                        </div>
+                    </div>
+                </div>
+            `
+        }
+
+        // Toggle content expansion
+        function toggleContent(id) {
+            const container = document.getElementById(id)
+            if (container.classList.contains('collapsed-content')) {
+                container.classList.remove('collapsed-content')
+                container.classList.add('expanded-content')
+                container.querySelector('.show-more-btn').textContent = 'Show Less'
             } else {
-                threadPrompts.style.display = 'none'
-                element.querySelector('.thread-toggle').textContent = '▼'
+                container.classList.remove('expanded-content')
+                container.classList.add('collapsed-content')
+                container.querySelector('.show-more-btn').textContent = 'Show More'
             }
-
-            // Load the first prompt's response
-            await loadResponse(currentEncodedPath, currentSessionId, promptIndex)
-
-            // Highlight the first prompt in the thread
-            document.querySelectorAll('.thread-prompt-item').forEach(el => el.classList.remove('active'))
-            const firstPromptItem = threadPrompts.querySelector('.thread-prompt-item')
-            if (firstPromptItem) {
-                firstPromptItem.classList.add('active')
-            }
-        }
-
-        // Toggle thread expansion (kept for potential future use)
-        function toggleThread(threadId, element) {
-            const threadPrompts = document.getElementById(threadId)
-            const isVisible = threadPrompts.style.display !== 'none'
-
-            if (isVisible) {
-                threadPrompts.style.display = 'none'
-                element.querySelector('.thread-toggle').textContent = '▼'
-            } else {
-                threadPrompts.style.display = 'block'
-                element.querySelector('.thread-toggle').textContent = '▲'
-            }
-        }
-
-        // Select a prompt and load response
-        async function selectPrompt(promptIndex, element) {
-            // Remove previous active states
-            document.querySelectorAll('.thread-prompt-item').forEach(el => el.classList.remove('active'))
-            element.classList.add('active')
-
-            // Load response
-            await loadResponse(currentEncodedPath, currentSessionId, promptIndex)
         }
 
         // Render markdown content safely
@@ -545,6 +487,42 @@
                 })
             })
         }
+
+        // Sort projects
+        function sortProjects(criteria) {
+            const container = document.querySelector('.projects-list')
+            const projects = Array.from(document.querySelectorAll('.project-item'))
+
+            // Update buttons
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                btn.classList.remove('active')
+                if (btn.onclick.toString().includes(criteria)) {
+                    btn.classList.add('active')
+                }
+            })
+
+            projects.sort((a, b) => {
+                const aVal = parseInt(a.dataset[criteria] || 0)
+                const bVal = parseInt(b.dataset[criteria] || 0)
+
+                // Descending order (newest/latest first) for Updated
+                // Descending order (newest first) for Created? Usually "Creation Date" sort means Newest First?
+                // The user asked: "First sort by creation date, then allows sort by updated".
+                // Usually "Sort by Created" implies Newest Created First or Oldest?
+                // Standard file explorers: Name (ASC), Date Modified (DESC), Date Created (DESC).
+                // Let's assume Newest First (Desc) for both dates is the most useful default.
+
+                return bVal - aVal
+            })
+
+            // Re-append
+            projects.forEach(p => container.appendChild(p))
+        }
+
+        // Initialize sort (Default: Created)
+        window.addEventListener('load', () => {
+            sortProjects('created')
+        })
 
         // Setup search functionality
         function setupSearch() {

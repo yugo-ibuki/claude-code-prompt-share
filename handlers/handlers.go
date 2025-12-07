@@ -190,6 +190,36 @@ func (h *Handler) GetResponseAPIHandler(c echo.Context) error {
 	})
 }
 
+// GetSessionFullAPIHandler returns the complete session history (chat view)
+func (h *Handler) GetSessionFullAPIHandler(c echo.Context) error {
+	encodedPath := c.Param("encodedPath")
+	sessionID := c.Param("sessionId")
+
+	session, err := h.sessionService.GetSession(encodedPath, sessionID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	// Transform messages for frontend
+	var chatMessages []map[string]interface{}
+	for i, msg := range session.Messages {
+		content := strings.TrimSpace(msg.Content)
+		if content == "" {
+			continue
+		}
+
+		chatMessages = append(chatMessages, map[string]interface{}{
+			"index":     i,
+			"uuid":      msg.UUID,
+			"role":      msg.Role, 
+			"content":   msg.Content,
+			"timestamp": msg.Timestamp,
+		})
+	}
+
+	return c.JSON(http.StatusOK, chatMessages)
+}
+
 // SearchHandler handles search requests
 func (h *Handler) SearchHandler(c echo.Context) error {
 	query := c.QueryParam("q")
